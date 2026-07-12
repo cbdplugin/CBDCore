@@ -18,7 +18,7 @@ import java.net.URI;
  */
 public final class ConfigService {
 
-    private static final int CURRENT_CONFIG_VERSION = 4;
+    private static final int CURRENT_CONFIG_VERSION = 5;
 
     private final JavaPlugin plugin;
     private final MotdService motdService;
@@ -43,9 +43,8 @@ public final class ConfigService {
 
     public void reload() {
         plugin.reloadConfig();
-        migrateConfigIfNeeded();
-
         FileConfiguration config = plugin.getConfig();
+        migrateConfigIfNeeded(config);
 
         MotdSettings motdSettings = motdService.parse(config);
 
@@ -62,16 +61,25 @@ public final class ConfigService {
     }
 
     /**
-     * 이전 버전에 만들어진 config.yml에는 config-version 키가 없거나 discord 섹션이 없을 수 있다.
-     * saveDefaultConfig()는 기존 파일을 덮어쓰지 않으므로, 새로 추가된 키는 defaults 체인을 통해
-     * 자동으로 기본값이 적용된다 (별도 병합 로직 불필요). 여기서는 버전 표시만 갱신한다.
+     * 이전 버전에 만들어진 config.yml에는 config-version 키가 없거나 새로 추가된 섹션(예:
+     * discord.bot-token)이 없을 수 있다. reloadConfig()는 jar에 번들된 config.yml을 defaults로
+     * 자동 설정해주지만, saveDefaultConfig()는 파일이 이미 존재하면 아무것도 쓰지 않으므로
+     * 새로 추가된 키는 메모리상 기본값으로만 존재하고 사용자가 여는 실제 config.yml 파일에는
+     * 영영 나타나지 않는다.
+     *
+     * copyDefaults(true) + saveConfig()는 항상 매 reload마다 실행한다 (config-version 비교로
+     * 게이팅하지 않음). 예전에는 버전이 낮을 때만 마이그레이션을 돌렸는데, 그러면 "버전 숫자만
+     * 올리고 실제 키는 못 쓰는" 마이그레이션 버그가 생겼을 때 이미 최신 버전 번호가 찍힌 파일은
+     * 다시는 고쳐지지 않는 문제가 있었다. 항상 무조건 병합하면 이런 종류의 문제가 재발해도
+     * 다음 reload에서 자동으로 스스로 복구된다. 이미 설정된 값은 그대로 두고, 파일에 없던 키만
+     * defaults에서 실제 파일로 복사된다.
      */
-    private void migrateConfigIfNeeded() {
-        FileConfiguration config = plugin.getConfig();
+    private void migrateConfigIfNeeded(FileConfiguration config) {
         int version = config.getInt("config-version", 1);
+        config.set("config-version", CURRENT_CONFIG_VERSION);
+        config.options().copyDefaults(true);
+        plugin.saveConfig();
         if (version < CURRENT_CONFIG_VERSION) {
-            config.set("config-version", CURRENT_CONFIG_VERSION);
-            plugin.saveConfig();
             plugin.getLogger().info("config.yml을 최신 구조(config-version " + CURRENT_CONFIG_VERSION + ")로 갱신했습니다.");
         }
     }
