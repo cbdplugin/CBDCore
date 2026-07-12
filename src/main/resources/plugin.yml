@@ -1,0 +1,16 @@
+name: CBDCore
+version: '${version}'
+main: com.cbd.cbdcore.CBDCore
+api-version: '26.1.2'
+description: CBD 서버 코어 플러그인 (MOTD / 서버 아이콘 관리)
+author: CBD
+commands:
+  cbdcore:
+    description: CBDCore 관리 명령어
+    usage: /<command> <reload|motd|icon|discord> [args...]
+    aliases: [cbd]
+    permission: cbdcore.admin
+permissions:
+  cbdcore.admin:
+    description: CBDCore 관리 명령어 사용 권한
+    default: op
