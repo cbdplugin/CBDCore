@@ -5,11 +5,6 @@ plugins {
 group = "com.cbd"
 version = "1.4.0"
 
-// 프로젝트 경로에 포함된 한글 때문에 Windows에서 테스트 실행용 JVM 인자 파일(@argfile)의
-// 클래스패스 인코딩이 깨져 테스트 클래스를 찾지 못하는 문제가 있어, 빌드 출력 경로를
-// ASCII 전용 경로로 옮긴다. (소스 코드 위치는 그대로, 산출물 위치만 변경됨)
-layout.buildDirectory.set(file(System.getProperty("user.home") + "/.cbdcore-build"))
-
 repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
