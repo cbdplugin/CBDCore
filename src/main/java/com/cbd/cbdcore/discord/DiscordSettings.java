@@ -16,17 +16,26 @@ public record DiscordSettings(
         URI webhookUri,
         String avatarUrlTemplate,
         String joinFormat,
-        String leaveFormat
+        String leaveFormat,
+        int joinColor,
+        int leaveColor,
+        String botToken
 ) {
 
     private static final Set<String> ALLOWED_HOSTS = Set.of("discord.com", "discordapp.com");
     private static final String WEBHOOK_PATH_PREFIX = "/api/webhooks/";
 
+    /** 디스코드 표준 "성공/온라인" 초록색. */
+    public static final int DEFAULT_JOIN_COLOR = 0x57F287;
+    /** 디스코드 표준 "위험/오프라인" 빨간색. */
+    public static final int DEFAULT_LEAVE_COLOR = 0xED4245;
+
     public static DiscordSettings disabled() {
         return new DiscordSettings(
                 false, false, false, null, "",
                 "%player% 님이 접속했습니다.",
-                "%player% 님이 퇴장했습니다."
+                "%player% 님이 퇴장했습니다.",
+                DEFAULT_JOIN_COLOR, DEFAULT_LEAVE_COLOR, ""
         );
     }
 
@@ -35,6 +44,30 @@ public record DiscordSettings(
      */
     public boolean canSend() {
         return enabled && webhookUri != null;
+    }
+
+    /**
+     * 디스코드 -> 인게임 채팅 중계(Gateway 연결)를 시작할 수 있는 상태인지
+     * (활성화 + 채팅 중계 사용 + 유효한 웹훅 URL + 봇 토큰 설정됨).
+     */
+    public boolean canRelayToGame() {
+        return enabled && chatEnabled && webhookUri != null && botToken != null && !botToken.isBlank();
+    }
+
+    /**
+     * config.yml에 적힌 색상 문자열("#RRGGBB" 또는 "RRGGBB")을 파싱한다.
+     * 값이 비어있거나 형식이 잘못되면 fallback을 사용한다.
+     */
+    public static int parseColor(String hex, int fallback) {
+        if (hex == null || hex.isBlank()) {
+            return fallback;
+        }
+        String normalized = hex.startsWith("#") ? hex.substring(1) : hex;
+        try {
+            return Integer.parseInt(normalized, 16) & 0xFFFFFF;
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 
     /**

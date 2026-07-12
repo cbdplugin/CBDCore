@@ -96,8 +96,49 @@ class DiscordSettingsTest {
         DiscordSettings settings = new DiscordSettings(
                 true, true, true,
                 URI.create("https://discord.com/api/webhooks/1/" + SECRET_TOKEN),
-                "", "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.");
+                "", "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.",
+                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR, "");
 
         assertTrue(settings.canSend());
+    }
+
+    @Test
+    void disabledSettingsCannotRelayToGame() {
+        assertFalse(DiscordSettings.disabled().canRelayToGame());
+    }
+
+    @Test
+    void settingsWithoutBotTokenCannotRelayToGame() {
+        DiscordSettings settings = new DiscordSettings(
+                true, true, true,
+                URI.create("https://discord.com/api/webhooks/1/" + SECRET_TOKEN),
+                "", "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.",
+                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR, "");
+
+        assertFalse(settings.canRelayToGame());
+    }
+
+    @Test
+    void settingsWithBotTokenCanRelayToGame() {
+        DiscordSettings settings = new DiscordSettings(
+                true, true, true,
+                URI.create("https://discord.com/api/webhooks/1/" + SECRET_TOKEN),
+                "", "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.",
+                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR, SECRET_TOKEN);
+
+        assertTrue(settings.canRelayToGame());
+    }
+
+    @Test
+    void parseColorAcceptsHexWithOrWithoutHash() {
+        assertEquals(0x57F287, DiscordSettings.parseColor("#57F287", 0));
+        assertEquals(0x57F287, DiscordSettings.parseColor("57F287", 0));
+    }
+
+    @Test
+    void parseColorFallsBackOnBlankOrInvalidInput() {
+        assertEquals(0x123456, DiscordSettings.parseColor("", 0x123456));
+        assertEquals(0x123456, DiscordSettings.parseColor(null, 0x123456));
+        assertEquals(0x123456, DiscordSettings.parseColor("not-a-color", 0x123456));
     }
 }

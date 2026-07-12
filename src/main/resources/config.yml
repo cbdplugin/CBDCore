@@ -1,7 +1,7 @@
 # CBDCore 설정 파일
 
 # 설정 파일 구조 버전입니다. 직접 수정하지 마세요.
-config-version: 3
+config-version: 4
 
 # 서버 목록(멀티플레이 화면)에 표시되는 MOTD 설정
 motd:
@@ -28,11 +28,16 @@ icon:
   # 플러그인 데이터 폴더(plugins/CBDCore) 기준 상대 경로
   file: "icon.png"
 
-# 인게임 채팅/접속·퇴장을 디스코드 채널로 중계합니다. (게임 -> 디스코드 단방향, 웹훅 기반)
-# 디스코드에서: 채널 설정 > 연동 > 웹훅 > 새 웹훅 만들기 > URL 복사 후 아래에 붙여넣기.
+# 인게임 채팅/접속·퇴장을 디스코드 채널로 중계하고, 디스코드 채팅을 인게임으로 중계받습니다.
+# 게임 -> 디스코드: webhook-url만으로 동작합니다. (채널 설정 > 연동 > 웹훅 > 새 웹훅 만들기 > URL 복사)
+# 디스코드 -> 게임: 추가로 bot-token이 필요합니다. Discord Developer Portal에서 봇을 만들고,
+#   Bot 탭에서 "MESSAGE CONTENT INTENT"를 켠 뒤, 토큰을 발급받아 아래 bot-token에 붙여넣고,
+#   그 봇을 webhook-url과 같은 채널을 볼 수 있는 권한으로 서버에 초대해야 합니다.
+#   bot-token이 비어있으면 디스코드 -> 게임 중계는 자동으로 꺼집니다.
 discord:
   enabled: false
   webhook-url: ""
+  bot-token: ""
   # 채팅 메시지를 보낼 때 플레이어의 얼굴 이미지를 아바타로 표시합니다. %uuid%는 자동 치환됩니다.
   # 비워두면 웹훅 기본 아바타를 사용합니다.
   avatar-url: "https://mc-heads.net/avatar/%uuid%/100"
@@ -42,3 +47,6 @@ discord:
     enabled: true
     join-format: "%player% 님이 접속했습니다."
     leave-format: "%player% 님이 퇴장했습니다."
+    # 접속/퇴장 임베드 좌측 색상 (#RRGGBB). 비워두면 디스코드 기본 초록/빨강을 사용합니다.
+    join-color: "#57F287"
+    leave-color: "#ED4245"

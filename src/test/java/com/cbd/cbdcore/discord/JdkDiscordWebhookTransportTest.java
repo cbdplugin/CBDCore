@@ -122,6 +122,21 @@ class JdkDiscordWebhookTransportTest {
     }
 
     @Test
+    void embedOnlyMessageIsSentEvenWithBlankContent() throws IOException {
+        URI uri = startServerReturning(204, null);
+
+        DiscordEmbed embed = new DiscordEmbed("player 님이 접속했습니다.", "https://example.com/avatar.png", 0x57F287);
+        DeliveryResult result = transport.send(uri, new DiscordMessage("", null, null, embed))
+                .toCompletableFuture().join();
+
+        assertTrue(result.success());
+        String body = receivedBodies.get(0);
+        assertTrue(body.contains("\"embeds\":[{\"color\":5763719"), body);
+        assertTrue(body.contains("\"author\":{\"name\":\"player 님이 접속했습니다.\""), body);
+        assertTrue(body.contains("\"icon_url\":\"https://example.com/avatar.png\""), body);
+    }
+
+    @Test
     void contentLongerThanDiscordLimitIsTruncatedByCodePoint() {
         String longText = "a".repeat(3000);
 

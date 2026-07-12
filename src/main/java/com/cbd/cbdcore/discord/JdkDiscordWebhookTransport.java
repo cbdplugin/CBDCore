@@ -32,11 +32,11 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
     @Override
     public CompletionStage<DeliveryResult> send(URI webhookUri, DiscordMessage message) {
         String content = truncateToCodePointLimit(message.content(), MAX_CONTENT_LENGTH);
-        if (content.isBlank()) {
+        if (content.isBlank() && message.embed() == null) {
             return CompletableFuture.completedFuture(DeliveryResult.success(0));
         }
 
-        String json = buildJson(content, message.username(), message.avatarUrl());
+        String json = buildJson(content, message.username(), message.avatarUrl(), message.embed());
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(webhookUri)
@@ -77,7 +77,7 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
         return DeliveryResult.permanentFailure(status);
     }
 
-    static String buildJson(String content, String username, String avatarUrl) {
+    static String buildJson(String content, String username, String avatarUrl, DiscordEmbed embed) {
         StringBuilder json = new StringBuilder("{");
         json.append("\"content\":\"").append(escapeJson(content)).append('"');
         if (username != null && !username.isBlank()) {
@@ -86,9 +86,26 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
         if (avatarUrl != null && !avatarUrl.isBlank()) {
             json.append(",\"avatar_url\":\"").append(escapeJson(avatarUrl)).append('"');
         }
+        if (embed != null) {
+            json.append(",\"embeds\":[").append(buildEmbedJson(embed)).append(']');
+        }
         // 채팅 내용에 @everyone, @here, 사용자/역할 멘션이 포함되어 있어도 실제로 알림이 가지 않도록
         // 문자열을 변형하는 대신 디스코드가 공식 지원하는 allowed_mentions로 전부 차단한다.
         json.append(",\"allowed_mentions\":{\"parse\":[]}");
+        json.append('}');
+        return json.toString();
+    }
+
+    private static String buildEmbedJson(DiscordEmbed embed) {
+        StringBuilder json = new StringBuilder("{");
+        json.append("\"color\":").append(embed.color());
+        if (embed.authorName() != null && !embed.authorName().isBlank()) {
+            json.append(",\"author\":{\"name\":\"").append(escapeJson(embed.authorName())).append('"');
+            if (embed.authorIconUrl() != null && !embed.authorIconUrl().isBlank()) {
+                json.append(",\"icon_url\":\"").append(escapeJson(embed.authorIconUrl())).append('"');
+            }
+            json.append('}');
+        }
         json.append('}');
         return json.toString();
     }

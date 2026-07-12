@@ -3,6 +3,7 @@ package com.cbd.cbdcore;
 import com.cbd.cbdcore.command.CBDCoreCommand;
 import com.cbd.cbdcore.config.ConfigService;
 import com.cbd.cbdcore.discord.DiscordBridgeService;
+import com.cbd.cbdcore.discord.DiscordGatewayClient;
 import com.cbd.cbdcore.discord.DiscordOutboundListener;
 import com.cbd.cbdcore.discord.JdkDiscordWebhookTransport;
 import com.cbd.cbdcore.icon.ServerIconService;
@@ -21,6 +22,7 @@ public class CBDCore extends JavaPlugin {
 
     private ServerIconService iconService;
     private DiscordBridgeService discordBridgeService;
+    private DiscordGatewayClient discordGatewayClient;
     private ConfigService configService;
 
     @Override
@@ -29,7 +31,8 @@ public class CBDCore extends JavaPlugin {
 
         this.iconService = new ServerIconService(getDataFolder(), getLogger());
         this.discordBridgeService = new DiscordBridgeService(new JdkDiscordWebhookTransport(getLogger()), getLogger());
-        this.configService = new ConfigService(this, iconService, discordBridgeService);
+        this.discordGatewayClient = new DiscordGatewayClient(this, getLogger());
+        this.configService = new ConfigService(this, iconService, discordBridgeService, discordGatewayClient);
 
         reload();
 
@@ -51,6 +54,9 @@ public class CBDCore extends JavaPlugin {
     public void onDisable() {
         if (discordBridgeService != null) {
             discordBridgeService.shutdown();
+        }
+        if (discordGatewayClient != null) {
+            discordGatewayClient.shutdown();
         }
         getLogger().info("CBDCore가 비활성화되었습니다.");
     }

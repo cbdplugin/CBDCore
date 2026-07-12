@@ -56,20 +56,27 @@ public final class DiscordBridgeService {
     }
 
     public boolean sendJoin(String playerName, UUID playerId) {
-        return sendJoinLeave(playerName, playerId, DiscordSettings::joinFormat);
+        return sendJoinLeave(playerName, playerId, DiscordSettings::joinFormat, DiscordSettings::joinColor);
     }
 
     public boolean sendLeave(String playerName, UUID playerId) {
-        return sendJoinLeave(playerName, playerId, DiscordSettings::leaveFormat);
+        return sendJoinLeave(playerName, playerId, DiscordSettings::leaveFormat, DiscordSettings::leaveColor);
     }
 
-    private boolean sendJoinLeave(String playerName, UUID playerId, java.util.function.Function<DiscordSettings, String> formatSelector) {
+    private boolean sendJoinLeave(
+            String playerName,
+            UUID playerId,
+            java.util.function.Function<DiscordSettings, String> formatSelector,
+            java.util.function.ToIntFunction<DiscordSettings> colorSelector
+    ) {
         DiscordSettings current = settings;
         if (!current.canSend() || !current.joinLeaveEnabled()) {
             return false;
         }
-        String content = formatSelector.apply(current).replace("%player%", playerName);
-        return enqueue(new DiscordMessage(content, playerName, resolveAvatarUrl(current, playerId)));
+        String text = formatSelector.apply(current).replace("%player%", playerName);
+        String avatarUrl = resolveAvatarUrl(current, playerId);
+        DiscordEmbed embed = new DiscordEmbed(text, avatarUrl, colorSelector.applyAsInt(current));
+        return enqueue(new DiscordMessage("", null, null, embed));
     }
 
     /**

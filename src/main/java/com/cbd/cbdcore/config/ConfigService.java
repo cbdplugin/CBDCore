@@ -1,6 +1,7 @@
 package com.cbd.cbdcore.config;
 
 import com.cbd.cbdcore.discord.DiscordBridgeService;
+import com.cbd.cbdcore.discord.DiscordGatewayClient;
 import com.cbd.cbdcore.discord.DiscordSettings;
 import com.cbd.cbdcore.icon.ServerIconService;
 import com.cbd.cbdcore.motd.MotdService;
@@ -17,20 +18,27 @@ import java.net.URI;
  */
 public final class ConfigService {
 
-    private static final int CURRENT_CONFIG_VERSION = 3;
+    private static final int CURRENT_CONFIG_VERSION = 4;
 
     private final JavaPlugin plugin;
     private final MotdService motdService;
     private final ServerIconService iconService;
     private final DiscordBridgeService discordBridgeService;
+    private final DiscordGatewayClient discordGatewayClient;
 
     private volatile PluginSettings settings = PluginSettings.initial();
 
-    public ConfigService(JavaPlugin plugin, ServerIconService iconService, DiscordBridgeService discordBridgeService) {
+    public ConfigService(
+            JavaPlugin plugin,
+            ServerIconService iconService,
+            DiscordBridgeService discordBridgeService,
+            DiscordGatewayClient discordGatewayClient
+    ) {
         this.plugin = plugin;
         this.motdService = new MotdService(plugin.getLogger());
         this.iconService = iconService;
         this.discordBridgeService = discordBridgeService;
+        this.discordGatewayClient = discordGatewayClient;
     }
 
     public void reload() {
@@ -47,7 +55,10 @@ public final class ConfigService {
                 : null;
 
         this.settings = new PluginSettings(motdSettings, iconEnabled, icon);
-        discordBridgeService.updateSettings(buildDiscordSettings(config));
+
+        DiscordSettings discordSettings = buildDiscordSettings(config);
+        discordBridgeService.updateSettings(discordSettings);
+        discordGatewayClient.updateSettings(discordSettings);
     }
 
     /**
@@ -73,6 +84,11 @@ public final class ConfigService {
         String avatarTemplate = config.getString("discord.avatar-url", "");
         String joinFormat = config.getString("discord.join-leave.join-format", "%player% 님이 접속했습니다.");
         String leaveFormat = config.getString("discord.join-leave.leave-format", "%player% 님이 퇴장했습니다.");
+        int joinColor = DiscordSettings.parseColor(
+                config.getString("discord.join-leave.join-color", ""), DiscordSettings.DEFAULT_JOIN_COLOR);
+        int leaveColor = DiscordSettings.parseColor(
+                config.getString("discord.join-leave.leave-color", ""), DiscordSettings.DEFAULT_LEAVE_COLOR);
+        String botToken = config.getString("discord.bot-token", "");
 
         URI webhookUri = null;
         if (enabled && rawUrl != null && !rawUrl.isBlank()) {
@@ -83,7 +99,10 @@ public final class ConfigService {
             }
         }
 
-        return new DiscordSettings(enabled, chatEnabled, joinLeaveEnabled, webhookUri, avatarTemplate, joinFormat, leaveFormat);
+        return new DiscordSettings(
+                enabled, chatEnabled, joinLeaveEnabled, webhookUri, avatarTemplate,
+                joinFormat, leaveFormat, joinColor, leaveColor, botToken
+        );
     }
 
     public MotdService motdService() {

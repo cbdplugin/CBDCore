@@ -44,7 +44,8 @@ class DiscordBridgeServiceTest {
         service = new DiscordBridgeService(transport, logger);
         service.updateSettings(new DiscordSettings(
                 true, true, true, WEBHOOK_URI, "",
-                "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다."));
+                "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.",
+                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR, ""));
     }
 
     @AfterEach
@@ -62,6 +63,23 @@ class DiscordBridgeServiceTest {
 
         List<String> contents = transport.receivedMessages().stream().map(DiscordMessage::content).toList();
         assertEquals(List.of("first", "second", "third"), contents);
+    }
+
+    @Test
+    void joinSendsGreenEmbedAndLeaveSendsRedEmbed() {
+        service.sendJoin("player", PLAYER_ID);
+        service.sendLeave("player", PLAYER_ID);
+
+        awaitReceivedCount(2);
+        List<DiscordMessage> messages = transport.receivedMessages();
+
+        DiscordEmbed joinEmbed = messages.get(0).embed();
+        assertEquals(DiscordSettings.DEFAULT_JOIN_COLOR, joinEmbed.color());
+        assertTrue(joinEmbed.authorName().contains("player"));
+
+        DiscordEmbed leaveEmbed = messages.get(1).embed();
+        assertEquals(DiscordSettings.DEFAULT_LEAVE_COLOR, leaveEmbed.color());
+        assertTrue(leaveEmbed.authorName().contains("player"));
     }
 
     @Test
