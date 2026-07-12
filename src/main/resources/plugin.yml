@@ -2,7 +2,7 @@ name: CBDCore
 version: '${version}'
 main: com.cbd.cbdcore.CBDCore
 api-version: '26.1.2'
-description: CBD 서버 코어 플러그인 (MOTD / 서버 아이콘 관리)
+description: CBD 서버 코어 플러그인 (MOTD / 서버 아이콘 / Discord 채팅 브리지)
 author: CBD
 commands:
   cbdcore:

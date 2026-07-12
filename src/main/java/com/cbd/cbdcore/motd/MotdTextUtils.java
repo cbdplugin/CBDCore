@@ -1,4 +1,4 @@
-package com.cbd.cbdcore.util;
+package com.cbd.cbdcore.motd;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;

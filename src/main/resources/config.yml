@@ -1,7 +1,7 @@
 # CBDCore 설정 파일
 
 # 설정 파일 구조 버전입니다. 직접 수정하지 마세요.
-config-version: 2
+config-version: 3
 
 # 서버 목록(멀티플레이 화면)에 표시되는 MOTD 설정
 motd:
