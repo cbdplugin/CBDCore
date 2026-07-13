@@ -38,8 +38,15 @@ public final class DiscordBridgeService {
     private volatile OutboundSettings settings = OutboundSettings.disabled();
     private volatile boolean acceptingNewMessages = true;
 
-    /** 큐에 담긴 메시지 한 건과, 담기는 순간에 고정된 전송 대상 웹훅 URI. */
-    private record QueuedMessage(URI webhookUri, DiscordMessage message) {
+    /**
+     * 큐에 담긴 메시지 한 건과, 담기는 순간에 고정된 전송 대상 웹훅 URI.
+     * {@code completion}이 있으면(관리자 테스트 전송) 최종 전송 결과로 완료시켜 호출자에게 알린다.
+     * 일반 채팅/접속 메시지는 결과에 관심이 없으므로 {@code null}이다.
+     */
+    private record QueuedMessage(URI webhookUri, DiscordMessage message, CompletableFuture<DeliveryResult> completion) {
+        QueuedMessage(URI webhookUri, DiscordMessage message) {
+            this(webhookUri, message, null);
+        }
     }
 
     public DiscordBridgeService(DiscordWebhookTransport transport, Logger logger) {
@@ -88,22 +95,33 @@ public final class DiscordBridgeService {
     }
 
     /**
-     * 관리자 명령어(/cbdcore discord test)에서 사용. 큐를 거치지 않고 즉시 전송하며,
-     * 실제 전송 결과를 그대로 돌려주므로 호출자가 성공/실패를 판단할 수 있다.
+     * 관리자 명령어(/cbdcore discord test)에서 사용. 일반 메시지와 동일한 FIFO 큐·재시도 경로를
+     * 그대로 거치되, 최종 전송 결과를 돌려주므로 호출자가 성공/실패를 판단할 수 있다. 큐가 가득
+     * 찼거나 종료 중이면 즉시 실패로 알린다.
      */
     public CompletionStage<DeliveryResult> sendTest(String content) {
         OutboundSettings current = settings;
         if (current.webhookUri() == null) {
             return CompletableFuture.completedFuture(DeliveryResult.permanentFailure(-1));
         }
-        return transport.send(current.webhookUri(), new DiscordMessage(content, "CBDCore", null));
+        CompletableFuture<DeliveryResult> completion = new CompletableFuture<>();
+        QueuedMessage queued = new QueuedMessage(
+                current.webhookUri(), new DiscordMessage(content, "CBDCore", null), completion);
+        if (!offer(queued)) {
+            return CompletableFuture.completedFuture(DeliveryResult.permanentFailure(-1));
+        }
+        return completion;
     }
 
     private boolean enqueue(URI webhookUri, DiscordMessage message) {
+        return offer(new QueuedMessage(webhookUri, message));
+    }
+
+    private boolean offer(QueuedMessage queued) {
         if (!acceptingNewMessages) {
             return false;
         }
-        boolean accepted = queue.offer(new QueuedMessage(webhookUri, message));
+        boolean accepted = queue.offer(queued);
         if (accepted) {
             queueFullWarned.set(false);
         } else if (queueFullWarned.compareAndSet(false, true)) {
@@ -131,6 +149,7 @@ public final class DiscordBridgeService {
                 // 멈추는 일이 없도록 한 건 실패로 삼고 다음 메시지로 넘어간다.
                 logger.warning("디스코드 메시지 전송 중 예기치 못한 오류가 발생해 해당 메시지를 건너뜁니다: "
                         + e.getClass().getSimpleName());
+                completeIfPresent(queued, DeliveryResult.permanentFailure(-1));
             }
         }
     }
@@ -147,6 +166,7 @@ public final class DiscordBridgeService {
                 Thread.sleep(result.retryAfterMillis());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                completeIfPresent(queued, result);
                 return;
             }
             result = joinUninterruptibly(transport.send(webhookUri, message));
@@ -155,6 +175,13 @@ public final class DiscordBridgeService {
 
         if (result.isRetryable()) {
             logger.warning("최대 전송 시도 횟수(" + MAX_ATTEMPTS + "회)를 초과하여 디스코드 메시지 전송을 포기합니다.");
+        }
+        completeIfPresent(queued, result);
+    }
+
+    private static void completeIfPresent(QueuedMessage queued, DeliveryResult result) {
+        if (queued.completion() != null) {
+            queued.completion().complete(result);
         }
     }
 

@@ -8,8 +8,10 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.http.HttpHeaders;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 
@@ -134,6 +136,28 @@ class JdkDiscordWebhookTransportTest {
         assertTrue(body.contains("\"embeds\":[{\"color\":5763719"), body);
         assertTrue(body.contains("\"author\":{\"name\":\"player 님이 접속했습니다.\""), body);
         assertTrue(body.contains("\"icon_url\":\"https://example.com/avatar.png\""), body);
+    }
+
+    @Test
+    void retryAfterHeaderSupportsDecimalSeconds() {
+        HttpHeaders headers = HttpHeaders.of(Map.of("Retry-After", List.of("1.5")), (k, v) -> true);
+
+        assertEquals(1500L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers));
+    }
+
+    @Test
+    void retryAfterFallsBackToResetAfterHeader() {
+        HttpHeaders headers = HttpHeaders.of(
+                Map.of("X-RateLimit-Reset-After", List.of("0.25")), (k, v) -> true);
+
+        assertEquals(250L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers));
+    }
+
+    @Test
+    void retryAfterDefaultsToOneSecondWhenAbsent() {
+        HttpHeaders headers = HttpHeaders.of(Map.of(), (k, v) -> true);
+
+        assertEquals(1000L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers));
     }
 
     @Test

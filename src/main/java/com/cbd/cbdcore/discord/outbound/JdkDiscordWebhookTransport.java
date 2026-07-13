@@ -4,10 +4,13 @@ import com.cbd.cbdcore.discord.DiscordJson;
 
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.logging.Logger;
@@ -68,7 +71,7 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
         }
 
         if (status == 429) {
-            long retryAfterMillis = response.headers().firstValueAsLong("Retry-After").orElse(1L) * 1000L;
+            long retryAfterMillis = parseRetryAfterMillis(response.headers());
             logger.warning("디스코드 웹훅 전송이 속도 제한(429)에 걸렸습니다. " + retryAfterMillis + "ms 후 재시도합니다.");
             return DeliveryResult.retryable(status, retryAfterMillis);
         }
@@ -80,6 +83,36 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
 
         logger.warning("디스코드 웹훅 전송 실패 (HTTP " + status + ")");
         return DeliveryResult.permanentFailure(status);
+    }
+
+    /**
+     * 429 응답의 재시도 대기 시간을 밀리초로 계산한다. 디스코드는 {@code Retry-After}를 초 단위
+     * <b>소수</b>(예: {@code 1.5})로 주기도 하므로 정수 파싱({@code firstValueAsLong})으로는
+     * 소수점 값을 놓친다. 소수를 지원해 초를 밀리초로 올림 처리하고, {@code Retry-After}가 없으면
+     * {@code X-RateLimit-Reset-After}(역시 소수 초)로 대체하며, 둘 다 없으면 1초를 사용한다.
+     */
+    static long parseRetryAfterMillis(HttpHeaders headers) {
+        OptionalDouble seconds = firstHeaderAsSeconds(headers, "Retry-After");
+        if (seconds.isEmpty()) {
+            seconds = firstHeaderAsSeconds(headers, "X-RateLimit-Reset-After");
+        }
+        double value = seconds.orElse(1.0);
+        if (Double.isNaN(value) || value < 0) {
+            value = 1.0;
+        }
+        return (long) Math.ceil(value * 1000.0);
+    }
+
+    private static OptionalDouble firstHeaderAsSeconds(HttpHeaders headers, String name) {
+        Optional<String> raw = headers.firstValue(name);
+        if (raw.isEmpty() || raw.get().isBlank()) {
+            return OptionalDouble.empty();
+        }
+        try {
+            return OptionalDouble.of(Double.parseDouble(raw.get().trim()));
+        } catch (NumberFormatException e) {
+            return OptionalDouble.empty();
+        }
     }
 
     static String buildJson(String content, String username, String avatarUrl, DiscordEmbed embed) {

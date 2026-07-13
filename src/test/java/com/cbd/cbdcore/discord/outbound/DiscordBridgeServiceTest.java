@@ -84,6 +84,24 @@ class DiscordBridgeServiceTest {
     }
 
     @Test
+    void sendTestGoesThroughQueueAndReturnsResult() {
+        DeliveryResult result = service.sendTest("ping").toCompletableFuture().join();
+
+        assertTrue(result.success());
+        // 테스트 메시지도 일반 메시지와 동일하게 실제 전송 경로(transport)를 거쳐야 한다.
+        assertTrue(transport.receivedMessages().stream().anyMatch(m -> "ping".equals(m.content())));
+    }
+
+    @Test
+    void sendTestReportsFailureResultFromTransport() {
+        transport.enqueueResponse(() -> CompletableFuture.completedFuture(DeliveryResult.permanentFailure(400)));
+
+        DeliveryResult result = service.sendTest("ping").toCompletableFuture().join();
+
+        assertFalse(result.success());
+    }
+
+    @Test
     void retryableFailureIsRetriedUntilSuccess() {
         transport.enqueueResponse(() -> CompletableFuture.completedFuture(DeliveryResult.retryable(429, 50)));
         transport.enqueueResponse(() -> CompletableFuture.completedFuture(DeliveryResult.success(204)));
