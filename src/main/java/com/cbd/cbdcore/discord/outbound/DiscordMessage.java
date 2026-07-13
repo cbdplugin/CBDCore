@@ -1,4 +1,4 @@
-package com.cbd.cbdcore.discord;
+package com.cbd.cbdcore.discord.outbound;
 
 /**
  * 디스코드 웹훅으로 보낼 메시지 한 건.

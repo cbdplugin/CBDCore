@@ -1,5 +1,6 @@
-package com.cbd.cbdcore.discord;
+package com.cbd.cbdcore.discord.outbound;
 
+import com.cbd.cbdcore.discord.DiscordSettings;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,10 +43,10 @@ class DiscordBridgeServiceTest {
         capturingHandler = new CapturingHandler();
         logger.addHandler(capturingHandler);
         service = new DiscordBridgeService(transport, logger);
-        service.updateSettings(new DiscordSettings(
-                true, true, true, WEBHOOK_URI, "",
+        service.updateSettings(new OutboundSettings(
+                true, true, WEBHOOK_URI, "",
                 "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.",
-                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR, ""));
+                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR));
     }
 
     @AfterEach

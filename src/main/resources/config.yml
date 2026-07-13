@@ -1,7 +1,7 @@
 # CBDCore 설정 파일
 
 # 설정 파일 구조 버전입니다. 직접 수정하지 마세요.
-config-version: 5
+config-version: 6
 
 # 서버 목록(멀티플레이 화면)에 표시되는 MOTD 설정
 motd:
@@ -28,25 +28,44 @@ icon:
   # 플러그인 데이터 폴더(plugins/CBDCore) 기준 상대 경로
   file: "icon.png"
 
-# 인게임 채팅/접속·퇴장을 디스코드 채널로 중계하고, 디스코드 채팅을 인게임으로 중계받습니다.
-# 게임 -> 디스코드: webhook-url만으로 동작합니다. (채널 설정 > 연동 > 웹훅 > 새 웹훅 만들기 > URL 복사)
-# 디스코드 -> 게임: 추가로 bot-token이 필요합니다. Discord Developer Portal에서 봇을 만들고,
-#   Bot 탭에서 "MESSAGE CONTENT INTENT"를 켠 뒤, 토큰을 발급받아 아래 bot-token에 붙여넣고,
+# 인게임 채팅/접속·퇴장을 디스코드 채널로 중계하고(outbound), 디스코드 채팅을 인게임으로 중계받습니다(inbound).
+# outbound(게임 -> 디스코드): webhook-url만으로 동작합니다. (채널 설정 > 연동 > 웹훅 > 새 웹훅 만들기 > URL 복사)
+# inbound(디스코드 -> 게임): 추가로 inbound.bot-token이 필요합니다. Discord Developer Portal에서 봇을 만들고,
+#   Bot 탭에서 "MESSAGE CONTENT INTENT"를 켠 뒤, 토큰을 발급받아 아래 inbound.bot-token에 붙여넣고,
 #   그 봇을 webhook-url과 같은 채널을 볼 수 있는 권한으로 서버에 초대해야 합니다.
-#   bot-token이 비어있으면 디스코드 -> 게임 중계는 자동으로 꺼집니다.
+#   inbound.bot-token이 비어있으면 디스코드 -> 게임 중계는 자동으로 꺼집니다.
 discord:
+  # 디스코드 연동 전체 on/off. false면 outbound/inbound 모두 동작하지 않습니다.
   enabled: false
+  # outbound 전송과 inbound 채널 자동 조회에 모두 쓰이는 공용 웹훅 URL입니다.
   webhook-url: ""
-  bot-token: ""
   # 채팅 메시지를 보낼 때 플레이어의 얼굴 이미지를 아바타로 표시합니다. %uuid%는 자동 치환됩니다.
   # 비워두면 웹훅 기본 아바타를 사용합니다.
   avatar-url: "https://mc-heads.net/avatar/%uuid%/100"
-  chat:
+
+  # 게임 -> 디스코드 (웹훅 전송)
+  outbound:
+    chat:
+      enabled: true
+    join-leave:
+      enabled: true
+      join-format: "%player% 님이 접속했습니다."
+      leave-format: "%player% 님이 퇴장했습니다."
+      # 접속/퇴장 임베드 좌측 색상 (#RRGGBB). 비워두면 디스코드 기본 초록/빨강을 사용합니다.
+      join-color: "#57F287"
+      leave-color: "#ED4245"
+
+  # 디스코드 -> 게임 (봇 토큰 + Gateway 수신)
+  inbound:
     enabled: true
-  join-leave:
-    enabled: true
-    join-format: "%player% 님이 접속했습니다."
-    leave-format: "%player% 님이 퇴장했습니다."
-    # 접속/퇴장 임베드 좌측 색상 (#RRGGBB). 비워두면 디스코드 기본 초록/빨강을 사용합니다.
-    join-color: "#57F287"
-    leave-color: "#ED4245"
+    bot-token: ""
+    # 수신할 채널 ID를 직접 지정합니다. 비워두면 webhook-url에서 자동으로 알아냅니다.
+    channel-id: ""
+    # 인게임으로 방송할 때 허용하는 최대 길이(글자 수)와 최대 줄 수입니다. 초과분은 잘립니다.
+    max-length: 256
+    max-lines: 2
+    # 본문 없이 첨부파일만 있는 메시지를 "[첨부파일 N개]"로 표시합니다.
+    show-attachments: true
+    # 인게임 방송 형식입니다. %name%/%message%가 치환되고 '&' 색상 코드를 쓸 수 있습니다.
+    # (디스코드 사용자가 이름/본문에 색상 코드를 넣어도 인게임 색상은 조작되지 않습니다.)
+    format: "&7[디스코드] &f%name% &7: &f%message%"

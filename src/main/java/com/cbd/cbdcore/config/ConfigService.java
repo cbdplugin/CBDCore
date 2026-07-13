@@ -1,8 +1,10 @@
 package com.cbd.cbdcore.config;
 
-import com.cbd.cbdcore.discord.DiscordBridgeService;
-import com.cbd.cbdcore.discord.DiscordGatewayClient;
 import com.cbd.cbdcore.discord.DiscordSettings;
+import com.cbd.cbdcore.discord.inbound.DiscordGatewayClient;
+import com.cbd.cbdcore.discord.inbound.InboundSettings;
+import com.cbd.cbdcore.discord.outbound.DiscordBridgeService;
+import com.cbd.cbdcore.discord.outbound.OutboundSettings;
 import com.cbd.cbdcore.icon.ServerIconService;
 import com.cbd.cbdcore.motd.MotdService;
 import com.cbd.cbdcore.motd.MotdSettings;
@@ -18,7 +20,7 @@ import java.net.URI;
  */
 public final class ConfigService {
 
-    private static final int CURRENT_CONFIG_VERSION = 5;
+    private static final int CURRENT_CONFIG_VERSION = 6;
 
     private final JavaPlugin plugin;
     private final MotdService motdService;
@@ -56,13 +58,13 @@ public final class ConfigService {
         this.settings = new PluginSettings(motdSettings, iconEnabled, icon);
 
         DiscordSettings discordSettings = buildDiscordSettings(config);
-        discordBridgeService.updateSettings(discordSettings);
-        discordGatewayClient.updateSettings(discordSettings);
+        discordBridgeService.updateSettings(discordSettings.outbound());
+        discordGatewayClient.updateSettings(discordSettings.inbound());
     }
 
     /**
      * 이전 버전에 만들어진 config.yml에는 config-version 키가 없거나 새로 추가된 섹션(예:
-     * discord.bot-token)이 없을 수 있다. reloadConfig()는 jar에 번들된 config.yml을 defaults로
+     * discord.inbound.bot-token)이 없을 수 있다. reloadConfig()는 jar에 번들된 config.yml을 defaults로
      * 자동 설정해주지만, saveDefaultConfig()는 파일이 이미 존재하면 아무것도 쓰지 않으므로
      * 새로 추가된 키는 메모리상 기본값으로만 존재하고 사용자가 여는 실제 config.yml 파일에는
      * 영영 나타나지 않는다.
@@ -86,20 +88,13 @@ public final class ConfigService {
 
     private DiscordSettings buildDiscordSettings(FileConfiguration config) {
         boolean enabled = config.getBoolean("discord.enabled", false);
-        boolean chatEnabled = config.getBoolean("discord.chat.enabled", true);
-        boolean joinLeaveEnabled = config.getBoolean("discord.join-leave.enabled", true);
-        String rawUrl = config.getString("discord.webhook-url", "");
-        String avatarTemplate = config.getString("discord.avatar-url", "");
-        String joinFormat = config.getString("discord.join-leave.join-format", "%player% 님이 접속했습니다.");
-        String leaveFormat = config.getString("discord.join-leave.leave-format", "%player% 님이 퇴장했습니다.");
-        int joinColor = DiscordSettings.parseColor(
-                config.getString("discord.join-leave.join-color", ""), DiscordSettings.DEFAULT_JOIN_COLOR);
-        int leaveColor = DiscordSettings.parseColor(
-                config.getString("discord.join-leave.leave-color", ""), DiscordSettings.DEFAULT_LEAVE_COLOR);
-        String botToken = config.getString("discord.bot-token", "");
+        if (!enabled) {
+            return DiscordSettings.disabled();
+        }
 
+        String rawUrl = config.getString("discord.webhook-url", "");
         URI webhookUri = null;
-        if (enabled && rawUrl != null && !rawUrl.isBlank()) {
+        if (rawUrl != null && !rawUrl.isBlank()) {
             try {
                 webhookUri = DiscordSettings.validateWebhookUrl(rawUrl);
             } catch (IllegalArgumentException e) {
@@ -108,9 +103,35 @@ public final class ConfigService {
         }
 
         return new DiscordSettings(
-                enabled, chatEnabled, joinLeaveEnabled, webhookUri, avatarTemplate,
-                joinFormat, leaveFormat, joinColor, leaveColor, botToken
-        );
+                buildOutbound(config, webhookUri, config.getString("discord.avatar-url", "")),
+                buildInbound(config, webhookUri));
+    }
+
+    private OutboundSettings buildOutbound(FileConfiguration config, URI webhookUri, String avatarTemplate) {
+        boolean chatEnabled = config.getBoolean("discord.outbound.chat.enabled", true);
+        boolean joinLeaveEnabled = config.getBoolean("discord.outbound.join-leave.enabled", true);
+        String joinFormat = config.getString("discord.outbound.join-leave.join-format", "%player% 님이 접속했습니다.");
+        String leaveFormat = config.getString("discord.outbound.join-leave.leave-format", "%player% 님이 퇴장했습니다.");
+        int joinColor = DiscordSettings.parseColor(
+                config.getString("discord.outbound.join-leave.join-color", ""), DiscordSettings.DEFAULT_JOIN_COLOR);
+        int leaveColor = DiscordSettings.parseColor(
+                config.getString("discord.outbound.join-leave.leave-color", ""), DiscordSettings.DEFAULT_LEAVE_COLOR);
+        return new OutboundSettings(
+                chatEnabled, joinLeaveEnabled, webhookUri, avatarTemplate,
+                joinFormat, leaveFormat, joinColor, leaveColor);
+    }
+
+    private InboundSettings buildInbound(FileConfiguration config, URI webhookUri) {
+        boolean inboundEnabled = config.getBoolean("discord.inbound.enabled", true);
+        String botToken = config.getString("discord.inbound.bot-token", "");
+        String channelId = config.getString("discord.inbound.channel-id", "");
+        int maxLength = Math.max(1, config.getInt("discord.inbound.max-length", 256));
+        int maxLines = Math.max(1, config.getInt("discord.inbound.max-lines", 2));
+        boolean showAttachments = config.getBoolean("discord.inbound.show-attachments", true);
+        String format = config.getString("discord.inbound.format", InboundSettings.DEFAULT_FORMAT);
+        return new InboundSettings(
+                inboundEnabled, botToken, webhookUri, channelId,
+                maxLength, maxLines, showAttachments, format);
     }
 
     public MotdService motdService() {

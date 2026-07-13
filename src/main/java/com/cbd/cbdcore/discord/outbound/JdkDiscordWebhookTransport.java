@@ -1,4 +1,6 @@
-package com.cbd.cbdcore.discord;
+package com.cbd.cbdcore.discord.outbound;
+
+import com.cbd.cbdcore.discord.DiscordJson;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -13,6 +15,9 @@ import java.util.logging.Logger;
 /**
  * JDK 내장 {@link HttpClient}만으로 디스코드 웹훅에 메시지를 전송하는 구현.
  * 외부 디스코드 라이브러리 의존성을 추가하지 않기 위해 JSON을 직접 문자열로 조립한다.
+ *
+ * <p>웹훅 URL에는 토큰이 포함되어 있으므로, 예외 로그에는 원본 예외 메시지(URL이 섞여
+ * 들어올 수 있음) 대신 예외 클래스 이름만 남긴다.</p>
  */
 public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport {
 
@@ -48,7 +53,7 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
         return HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.discarding())
                 .handle((response, throwable) -> {
                     if (throwable != null) {
-                        logger.warning("디스코드 웹훅 전송 실패: " + throwable.getMessage());
+                        logger.warning("디스코드 웹훅 전송 실패: " + throwable.getClass().getSimpleName());
                         return DeliveryResult.retryable(-1, Duration.ofSeconds(5).toMillis());
                     }
                     return toDeliveryResult(response);
@@ -79,12 +84,12 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
 
     static String buildJson(String content, String username, String avatarUrl, DiscordEmbed embed) {
         StringBuilder json = new StringBuilder("{");
-        json.append("\"content\":\"").append(escapeJson(content)).append('"');
+        json.append("\"content\":\"").append(DiscordJson.escapeJson(content)).append('"');
         if (username != null && !username.isBlank()) {
-            json.append(",\"username\":\"").append(escapeJson(username)).append('"');
+            json.append(",\"username\":\"").append(DiscordJson.escapeJson(username)).append('"');
         }
         if (avatarUrl != null && !avatarUrl.isBlank()) {
-            json.append(",\"avatar_url\":\"").append(escapeJson(avatarUrl)).append('"');
+            json.append(",\"avatar_url\":\"").append(DiscordJson.escapeJson(avatarUrl)).append('"');
         }
         if (embed != null) {
             json.append(",\"embeds\":[").append(buildEmbedJson(embed)).append(']');
@@ -100,9 +105,9 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
         StringBuilder json = new StringBuilder("{");
         json.append("\"color\":").append(embed.color());
         if (embed.authorName() != null && !embed.authorName().isBlank()) {
-            json.append(",\"author\":{\"name\":\"").append(escapeJson(embed.authorName())).append('"');
+            json.append(",\"author\":{\"name\":\"").append(DiscordJson.escapeJson(embed.authorName())).append('"');
             if (embed.authorIconUrl() != null && !embed.authorIconUrl().isBlank()) {
-                json.append(",\"icon_url\":\"").append(escapeJson(embed.authorIconUrl())).append('"');
+                json.append(",\"icon_url\":\"").append(DiscordJson.escapeJson(embed.authorIconUrl())).append('"');
             }
             json.append('}');
         }
@@ -120,27 +125,5 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
         }
         int cutIndex = text.offsetByCodePoints(0, maxCodePoints);
         return text.substring(0, cutIndex);
-    }
-
-    static String escapeJson(String text) {
-        StringBuilder sb = new StringBuilder(text.length());
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            switch (c) {
-                case '"' -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default -> {
-                    if (c < 0x20) {
-                        sb.append(String.format("\\u%04x", (int) c));
-                    } else {
-                        sb.append(c);
-                    }
-                }
-            }
-        }
-        return sb.toString();
     }
 }

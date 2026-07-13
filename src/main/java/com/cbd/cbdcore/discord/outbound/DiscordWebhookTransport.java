@@ -1,4 +1,4 @@
-package com.cbd.cbdcore.discord;
+package com.cbd.cbdcore.discord.outbound;
 
 import java.net.URI;
 import java.util.concurrent.CompletionStage;

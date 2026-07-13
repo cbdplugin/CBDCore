@@ -1,4 +1,4 @@
-package com.cbd.cbdcore.discord;
+package com.cbd.cbdcore.discord.outbound;
 
 /**
  * 디스코드 웹훅 메시지에 첨부하는 간단한 임베드 한 건.

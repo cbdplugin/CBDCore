@@ -4,6 +4,10 @@ main: com.cbd.cbdcore.CBDCore
 api-version: '26.1.2'
 description: CBD 서버 코어 플러그인 (MOTD / 서버 아이콘 / Discord 채팅 브리지)
 author: CBD
+# Gson은 컴파일 시에만 Paper 번들 버전에 의존(compileOnly)하므로, 런타임에는
+# 서버가 이 버전을 직접 내려받아 제공하도록 명시한다. (Paper 번들 버전 변화에 영향받지 않도록)
+libraries:
+  - com.google.code.gson:gson:2.11.0
 commands:
   cbdcore:
     description: CBDCore 관리 명령어

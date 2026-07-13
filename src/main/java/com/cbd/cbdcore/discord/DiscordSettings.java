@@ -1,26 +1,26 @@
 package com.cbd.cbdcore.discord;
 
+import com.cbd.cbdcore.discord.inbound.InboundSettings;
+import com.cbd.cbdcore.discord.outbound.OutboundSettings;
+
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Locale;
 import java.util.Set;
 
 /**
  * config.yml의 discord.* 설정을 읽어 만든 불변 스냅샷.
- * 메인 스레드(reload)에서만 생성되고, 다른 스레드(비동기 채팅 이벤트 등)는
- * 이 완성된 객체만 참조하므로 설정 리로드와 경쟁 상태가 생기지 않는다.
+ *
+ * <p>방향별로 완전히 분리되어 있다:
+ * <ul>
+ *   <li>{@link OutboundSettings} - 게임 -&gt; 디스코드 (웹훅 전송)</li>
+ *   <li>{@link InboundSettings} - 디스코드 -&gt; 게임 (봇 토큰 + Gateway 수신)</li>
+ * </ul>
+ *
+ * <p>메인 스레드(reload)에서만 생성되고, 다른 스레드(비동기 채팅 이벤트, Gateway 콜백 등)는
+ * 이 완성된 불변 객체만 참조하므로 설정 리로드와 경쟁 상태가 생기지 않는다.
  */
-public record DiscordSettings(
-        boolean enabled,
-        boolean chatEnabled,
-        boolean joinLeaveEnabled,
-        URI webhookUri,
-        String avatarUrlTemplate,
-        String joinFormat,
-        String leaveFormat,
-        int joinColor,
-        int leaveColor,
-        String botToken
-) {
+public record DiscordSettings(OutboundSettings outbound, InboundSettings inbound) {
 
     private static final Set<String> ALLOWED_HOSTS = Set.of("discord.com", "discordapp.com");
     private static final String WEBHOOK_PATH_PREFIX = "/api/webhooks/";
@@ -31,27 +31,7 @@ public record DiscordSettings(
     public static final int DEFAULT_LEAVE_COLOR = 0xED4245;
 
     public static DiscordSettings disabled() {
-        return new DiscordSettings(
-                false, false, false, null, "",
-                "%player% 님이 접속했습니다.",
-                "%player% 님이 퇴장했습니다.",
-                DEFAULT_JOIN_COLOR, DEFAULT_LEAVE_COLOR, ""
-        );
-    }
-
-    /**
-     * 실제로 메시지를 보낼 수 있는 상태인지 (활성화 + 유효한 웹훅 URL).
-     */
-    public boolean canSend() {
-        return enabled && webhookUri != null;
-    }
-
-    /**
-     * 디스코드 -> 인게임 채팅 중계(Gateway 연결)를 시작할 수 있는 상태인지
-     * (활성화 + 채팅 중계 사용 + 유효한 웹훅 URL + 봇 토큰 설정됨).
-     */
-    public boolean canRelayToGame() {
-        return enabled && chatEnabled && webhookUri != null && botToken != null && !botToken.isBlank();
+        return new DiscordSettings(OutboundSettings.disabled(), InboundSettings.disabled());
     }
 
     /**
@@ -89,7 +69,7 @@ public record DiscordSettings(
         }
 
         String host = uri.getHost();
-        if (host == null || !ALLOWED_HOSTS.contains(host.toLowerCase(java.util.Locale.ROOT))) {
+        if (host == null || !ALLOWED_HOSTS.contains(host.toLowerCase(Locale.ROOT))) {
             throw new IllegalArgumentException("디스코드 웹훅 URL의 호스트가 올바르지 않습니다.");
         }
 

@@ -2,15 +2,17 @@ package com.cbd.cbdcore;
 
 import com.cbd.cbdcore.command.CBDCoreCommand;
 import com.cbd.cbdcore.config.ConfigService;
-import com.cbd.cbdcore.discord.DiscordBridgeService;
-import com.cbd.cbdcore.discord.DiscordGatewayClient;
-import com.cbd.cbdcore.discord.DiscordOutboundListener;
-import com.cbd.cbdcore.discord.JdkDiscordWebhookTransport;
+import com.cbd.cbdcore.discord.inbound.DiscordGatewayClient;
+import com.cbd.cbdcore.discord.outbound.DiscordBridgeService;
+import com.cbd.cbdcore.discord.outbound.DiscordOutboundListener;
+import com.cbd.cbdcore.discord.outbound.JdkDiscordWebhookTransport;
 import com.cbd.cbdcore.icon.ServerIconService;
 import com.cbd.cbdcore.motd.ServerListPingListener;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.Objects;
 
 /**
@@ -29,9 +31,13 @@ public class CBDCore extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+
         this.iconService = new ServerIconService(getDataFolder(), getLogger());
         this.discordBridgeService = new DiscordBridgeService(new JdkDiscordWebhookTransport(getLogger()), getLogger());
-        this.discordGatewayClient = new DiscordGatewayClient(this, getLogger());
+        this.discordGatewayClient = new DiscordGatewayClient(this, getLogger(), httpClient);
         this.configService = new ConfigService(this, iconService, discordBridgeService, discordGatewayClient);
 
         reload();

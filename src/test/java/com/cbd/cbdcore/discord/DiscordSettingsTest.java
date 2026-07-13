@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DiscordSettingsTest {
 
@@ -87,46 +86,11 @@ class DiscordSettingsTest {
     }
 
     @Test
-    void disabledSettingsCannotSend() {
-        assertFalse(DiscordSettings.disabled().canSend());
-    }
-
-    @Test
-    void enabledSettingsWithWebhookCanSend() {
-        DiscordSettings settings = new DiscordSettings(
-                true, true, true,
-                URI.create("https://discord.com/api/webhooks/1/" + SECRET_TOKEN),
-                "", "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.",
-                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR, "");
-
-        assertTrue(settings.canSend());
-    }
-
-    @Test
-    void disabledSettingsCannotRelayToGame() {
-        assertFalse(DiscordSettings.disabled().canRelayToGame());
-    }
-
-    @Test
-    void settingsWithoutBotTokenCannotRelayToGame() {
-        DiscordSettings settings = new DiscordSettings(
-                true, true, true,
-                URI.create("https://discord.com/api/webhooks/1/" + SECRET_TOKEN),
-                "", "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.",
-                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR, "");
-
-        assertFalse(settings.canRelayToGame());
-    }
-
-    @Test
-    void settingsWithBotTokenCanRelayToGame() {
-        DiscordSettings settings = new DiscordSettings(
-                true, true, true,
-                URI.create("https://discord.com/api/webhooks/1/" + SECRET_TOKEN),
-                "", "%player% 님이 접속했습니다.", "%player% 님이 퇴장했습니다.",
-                DiscordSettings.DEFAULT_JOIN_COLOR, DiscordSettings.DEFAULT_LEAVE_COLOR, SECRET_TOKEN);
-
-        assertTrue(settings.canRelayToGame());
+    void disabledSettingsHaveBothDirectionsOff() {
+        DiscordSettings disabled = DiscordSettings.disabled();
+        assertFalse(disabled.outbound().canSendChat());
+        assertFalse(disabled.outbound().canSendJoinLeave());
+        assertFalse(disabled.inbound().canRelay());
     }
 
     @Test

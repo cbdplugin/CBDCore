@@ -1,4 +1,4 @@
-package com.cbd.cbdcore.discord;
+package com.cbd.cbdcore.discord.outbound;
 
 /**
  * 디스코드 웹훅 전송 시도 하나의 결과.

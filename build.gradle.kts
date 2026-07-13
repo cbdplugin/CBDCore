@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.cbd"
-version = "1.4.1"
+version = "1.5.0"
 
 repositories {
     mavenCentral()
@@ -12,9 +12,9 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
-    // 디스코드 Gateway(WebSocket) 메시지 JSON 파싱용. Paper 서버는 Mojang/Vanilla 코드가
-    // 내부적으로 Gson을 오래전부터 사용해왔기 때문에 런타임 클래스패스에 항상 존재하며,
-    // paper-api와 동일하게 compileOnly로만 선언한다 (직접 번들하지 않음).
+    // 디스코드 Gateway(WebSocket) 메시지 JSON 파싱용. 컴파일 시에는 compileOnly로 참조하고,
+    // 런타임에는 plugin.yml의 libraries 선언을 통해 서버가 이 버전을 직접 내려받아 제공한다.
+    // (Paper 번들 Gson 버전 변화에 영향받지 않도록 명시적으로 런타임 라이브러리로 선언)
     compileOnly("com.google.code.gson:gson:2.11.0")
     testImplementation("com.google.code.gson:gson:2.11.0")
 

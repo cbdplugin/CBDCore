@@ -1,4 +1,4 @@
-package com.cbd.cbdcore.discord;
+package com.cbd.cbdcore.discord.outbound;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -12,7 +12,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
  * 인게임 이벤트에서 필요한 정보만 추출해 {@link DiscordBridgeService}로 전달한다.
  * 설정 조회, 포맷팅, HTTP 호출 등 실제 로직은 전부 서비스 쪽 책임이다.
  * {@link AsyncChatEvent}는 비동기 스레드에서 실행되므로, 여기서는 플러그인 설정(FileConfiguration)에
- * 직접 접근하지 않고 이미 만들어진 불변 {@link DiscordSettings} 스냅샷만 참조하는
+ * 직접 접근하지 않고 이미 만들어진 불변 {@link OutboundSettings} 스냅샷만 참조하는
  * {@link DiscordBridgeService}만 호출한다.
  */
 public class DiscordOutboundListener implements Listener {
