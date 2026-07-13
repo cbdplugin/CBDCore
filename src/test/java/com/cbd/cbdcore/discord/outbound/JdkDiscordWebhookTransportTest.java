@@ -177,6 +177,21 @@ class JdkDiscordWebhookTransportTest {
     }
 
     @Test
+    void retryAfterIsCappedAtMaximumDelay() {
+        HttpHeaders headers = HttpHeaders.of(Map.of("Retry-After", List.of("999999")), (k, v) -> true);
+
+        assertEquals(JdkDiscordWebhookTransport.MAX_RETRY_DELAY_MILLIS,
+                JdkDiscordWebhookTransport.parseRetryAfterMillis(headers, null));
+    }
+
+    @Test
+    void retryAfterFallsBackToOneSecondForNonFiniteValue() {
+        HttpHeaders headers = HttpHeaders.of(Map.of("Retry-After", List.of("Infinity")), (k, v) -> true);
+
+        assertEquals(1000L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers, null));
+    }
+
+    @Test
     void contentLongerThanDiscordLimitIsTruncatedByCodePoint() {
         String longText = "a".repeat(3000);
 

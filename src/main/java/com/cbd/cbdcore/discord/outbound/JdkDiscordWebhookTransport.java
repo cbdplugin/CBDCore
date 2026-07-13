@@ -29,6 +29,12 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
     /** 디스코드 웹훅 content 필드의 최대 길이 (공식 제한). */
     static final int MAX_CONTENT_LENGTH = 2_000;
 
+    /**
+     * 재시도 대기 시간의 상한(5분). 디스코드가 비정상적으로 큰 {@code retry_after}를 주더라도
+     * 전송 워커가 무한정 묶이지 않도록 이 값으로 잘라낸다.
+     */
+    static final long MAX_RETRY_DELAY_MILLIS = Duration.ofMinutes(5).toMillis();
+
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
@@ -95,7 +101,9 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
      * <b>소수</b>(예: {@code 1.5})로 주기도 하므로 정수 파싱({@code firstValueAsLong})으로는
      * 소수점 값을 놓친다. 소수를 지원해 초를 밀리초로 올림 처리한다. 우선순위는
      * {@code Retry-After} 헤더 → {@code X-RateLimit-Reset-After} 헤더 → 응답 본문의
-     * {@code retry_after}(역시 소수 초) 순이며, 모두 없으면 1초를 사용한다.
+     * {@code retry_after}(역시 소수 초) 순이며, 모두 없으면 1초를 사용한다. 비정상 값
+     * (음수·NaN·무한대)은 1초로 대체하고, 지나치게 큰 값은 {@link #MAX_RETRY_DELAY_MILLIS}로
+     * 상한을 둬 워커가 무한정 대기하지 않게 한다.
      */
     static long parseRetryAfterMillis(HttpHeaders headers, String body) {
         OptionalDouble seconds = firstHeaderAsSeconds(headers, "Retry-After");
@@ -106,10 +114,10 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
             seconds = retryAfterFromBody(body);
         }
         double value = seconds.orElse(1.0);
-        if (Double.isNaN(value) || value < 0) {
+        if (!Double.isFinite(value) || value < 0) {
             value = 1.0;
         }
-        return (long) Math.ceil(value * 1000.0);
+        return Math.min((long) Math.ceil(value * 1000.0), MAX_RETRY_DELAY_MILLIS);
     }
 
     private static OptionalDouble retryAfterFromBody(String body) {
