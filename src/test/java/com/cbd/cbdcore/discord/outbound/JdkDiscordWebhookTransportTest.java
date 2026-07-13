@@ -142,7 +142,7 @@ class JdkDiscordWebhookTransportTest {
     void retryAfterHeaderSupportsDecimalSeconds() {
         HttpHeaders headers = HttpHeaders.of(Map.of("Retry-After", List.of("1.5")), (k, v) -> true);
 
-        assertEquals(1500L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers));
+        assertEquals(1500L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers, null));
     }
 
     @Test
@@ -150,14 +150,30 @@ class JdkDiscordWebhookTransportTest {
         HttpHeaders headers = HttpHeaders.of(
                 Map.of("X-RateLimit-Reset-After", List.of("0.25")), (k, v) -> true);
 
-        assertEquals(250L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers));
+        assertEquals(250L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers, null));
+    }
+
+    @Test
+    void retryAfterFallsBackToResponseBodyWhenHeadersAbsent() {
+        HttpHeaders headers = HttpHeaders.of(Map.of(), (k, v) -> true);
+        String body = "{\"message\":\"You are being rate limited.\",\"retry_after\":0.75,\"global\":false}";
+
+        assertEquals(750L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers, body));
+    }
+
+    @Test
+    void retryAfterHeaderTakesPrecedenceOverResponseBody() {
+        HttpHeaders headers = HttpHeaders.of(Map.of("Retry-After", List.of("2")), (k, v) -> true);
+        String body = "{\"retry_after\":0.1}";
+
+        assertEquals(2000L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers, body));
     }
 
     @Test
     void retryAfterDefaultsToOneSecondWhenAbsent() {
         HttpHeaders headers = HttpHeaders.of(Map.of(), (k, v) -> true);
 
-        assertEquals(1000L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers));
+        assertEquals(1000L, JdkDiscordWebhookTransport.parseRetryAfterMillis(headers, null));
     }
 
     @Test

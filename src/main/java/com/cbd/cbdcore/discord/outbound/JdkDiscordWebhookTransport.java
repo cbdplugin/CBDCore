@@ -14,6 +14,8 @@ import java.util.OptionalDouble;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * JDK 내장 {@link HttpClient}만으로 디스코드 웹훅에 메시지를 전송하는 구현.
@@ -53,7 +55,7 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
                 .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
                 .build();
 
-        return HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.discarding())
+        return HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .handle((response, throwable) -> {
                     if (throwable != null) {
                         logger.warning("디스코드 웹훅 전송 실패: " + throwable.getClass().getSimpleName());
@@ -63,7 +65,7 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
                 });
     }
 
-    private DeliveryResult toDeliveryResult(HttpResponse<Void> response) {
+    private DeliveryResult toDeliveryResult(HttpResponse<String> response) {
         int status = response.statusCode();
 
         if (status >= 200 && status < 300) {
@@ -71,7 +73,7 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
         }
 
         if (status == 429) {
-            long retryAfterMillis = parseRetryAfterMillis(response.headers());
+            long retryAfterMillis = parseRetryAfterMillis(response.headers(), response.body());
             logger.warning("디스코드 웹훅 전송이 속도 제한(429)에 걸렸습니다. " + retryAfterMillis + "ms 후 재시도합니다.");
             return DeliveryResult.retryable(status, retryAfterMillis);
         }
@@ -85,22 +87,44 @@ public final class JdkDiscordWebhookTransport implements DiscordWebhookTransport
         return DeliveryResult.permanentFailure(status);
     }
 
+    private static final Pattern BODY_RETRY_AFTER_PATTERN =
+            Pattern.compile("\"retry_after\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)");
+
     /**
      * 429 응답의 재시도 대기 시간을 밀리초로 계산한다. 디스코드는 {@code Retry-After}를 초 단위
      * <b>소수</b>(예: {@code 1.5})로 주기도 하므로 정수 파싱({@code firstValueAsLong})으로는
-     * 소수점 값을 놓친다. 소수를 지원해 초를 밀리초로 올림 처리하고, {@code Retry-After}가 없으면
-     * {@code X-RateLimit-Reset-After}(역시 소수 초)로 대체하며, 둘 다 없으면 1초를 사용한다.
+     * 소수점 값을 놓친다. 소수를 지원해 초를 밀리초로 올림 처리한다. 우선순위는
+     * {@code Retry-After} 헤더 → {@code X-RateLimit-Reset-After} 헤더 → 응답 본문의
+     * {@code retry_after}(역시 소수 초) 순이며, 모두 없으면 1초를 사용한다.
      */
-    static long parseRetryAfterMillis(HttpHeaders headers) {
+    static long parseRetryAfterMillis(HttpHeaders headers, String body) {
         OptionalDouble seconds = firstHeaderAsSeconds(headers, "Retry-After");
         if (seconds.isEmpty()) {
             seconds = firstHeaderAsSeconds(headers, "X-RateLimit-Reset-After");
+        }
+        if (seconds.isEmpty()) {
+            seconds = retryAfterFromBody(body);
         }
         double value = seconds.orElse(1.0);
         if (Double.isNaN(value) || value < 0) {
             value = 1.0;
         }
         return (long) Math.ceil(value * 1000.0);
+    }
+
+    private static OptionalDouble retryAfterFromBody(String body) {
+        if (body == null || body.isBlank()) {
+            return OptionalDouble.empty();
+        }
+        Matcher matcher = BODY_RETRY_AFTER_PATTERN.matcher(body);
+        if (!matcher.find()) {
+            return OptionalDouble.empty();
+        }
+        try {
+            return OptionalDouble.of(Double.parseDouble(matcher.group(1)));
+        } catch (NumberFormatException e) {
+            return OptionalDouble.empty();
+        }
     }
 
     private static OptionalDouble firstHeaderAsSeconds(HttpHeaders headers, String name) {
